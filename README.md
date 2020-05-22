@@ -40,3 +40,12 @@ ie for *sample_ID*.fastq add *sample_ID* to the strains section of the config.
 An output dir will then be produced for each *sample_ID* containing seperate results dir for each assembler run. 
 
 Assemblers can be removed from the config file if a particular assembler is not required. 
+
+4. Start the Snakefile
+```
+snakemake -s assemblies.Snakefile --use-conda --cores 
+```
+Specifiy the number of cores you have available for the pipeline after the --cores option. 
+
+A dry run (initiated with the -np flag) can be useful to check installation and config file correct. 
+
