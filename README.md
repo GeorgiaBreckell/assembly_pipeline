@@ -26,12 +26,17 @@ cd assembly_pipeline
 conda create --name assemblies --file environments/base.yaml
 conda activate assemblies
 ``` 
-   - Ra and Wtdbg2 must be installed into the working dir seperately from here: [ra](https://github.com/lbcb-sci/ra), [wtdbg2](https://github.com/ruanjue/wtdbg2)  
+   - Ra must be installed into the working dir seperately from [here](https://github.com/lbcb-sci/ra)
    - mlplasmids is an R based tool installed from [here](https://gitlab.com/sirarredondo/mlplasmids), tested in R v4.0.0
-   - If run on a linux system, Bandage plots will be produced for Flye, Unicycler and Canu assemblies. For OSX, the Bandage GUI can be installed from [here](http://rrwick.github.io/Bandage/) and is useful for visualising contig relationships. 
 
 3. Write your config file
 ``` 
 cp assemblies_config.yml.example assemblies_config.yml
 ```
-Add appropriate details to config file for your isolates:
+Add appropriate details to the config file for your isolates,
+
+ie for *sample_ID*.fastq add *sample_ID* to the strains section of the config. 
+
+An output dir will then be produced for each *sample_ID* containing seperate results dir for each assembler run. 
+
+Assemblers can be removed from the config file if a particular assembler is not required. 
