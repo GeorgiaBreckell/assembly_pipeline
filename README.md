@@ -2,7 +2,11 @@
 
 This is a snakemake based assembly pipeline for assembling, polishing and assessing hybrid genomes from Illumina short reads and Nanopore long reads. Developed in an effort to establish which assembly option was best suited for producing a high quality de-novo genome assembly for natural isolates of E.coli. 
 
-The pipeline takes as input paired Illumina short reads, along with Nanopore long reads for each isolate and produces up to 5 hybrid assemblies, using the assemblers Flye, Canu, Ra, Wtdbg2 and Unicycler. Each assembly is polished iteratively by Racon and Pilon using both the long and short reads. We therefore consider all final assemblies to be hybrid assemblies, regardless of whether the original assembly was derived entirely from long reads. 
+The pipeline takes as input paired Illumina short reads, along with Nanopore long reads for each isolate and produces up to 5 hybrid assemblies, using the assemblers Flye, Canu, Ra, Wtdbg2 and Unicycler. 
+
+Prior to assembly a small subset of Nanopore and Illumina reads are removed from the dataset. These reads are withheld from the assemblies and are used during the assembly assessment. We believe using these *"novel"* reads when assessing read coverage and the fraction of concordantly mapping reads improves the validity of these metrics.  
+
+Each assembly is polished iteratively by Racon and Pilon using both the long and short reads. We therefore consider all final assemblies to be hybrid assemblies, regardless of whether the original assembly was derived entirely from long reads. 
 
 The quality of each polished assembly is then assessed across a range of metrics including: 
 * The fraction of short open reading frames
@@ -10,7 +14,7 @@ The quality of each polished assembly is then assessed across a range of metrics
 * A Socru assessment of rRNA operon arrangement, to assess global assembly structure
 * A mlPlasmids assessment to predict short contigs of plasmid origin 
 * Use of plasmidFinder to identify plasmids within isolates 
-* Read coverage plots across the genome
+* Read coverage plots for Nanopore and Illumina withheld reads.
 
 Tested and used on a Linux system  
 
@@ -47,5 +51,5 @@ snakemake -s assemblies.Snakefile --use-conda --cores
 ```
 Specifiy the number of cores you have available for the pipeline after the --cores option. 
 
-A dry run (initiated with the -np flag) can be useful to check installation and config file correct. 
+A dry run (initiated with the -np flag) can be useful to check the installation and config file is correct. 
 
