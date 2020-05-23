@@ -1,0 +1,14 @@
+assembler:
+    - flye
+    - ra 
+    - unicycler
+    - canu
+    - wtdbg2 
+
+assembler_gfa:
+    - flye
+    - unicycler
+    - canu 
+
+strain:
+    - SC12A_A2 

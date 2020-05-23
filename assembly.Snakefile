@@ -27,13 +27,13 @@
 ###################################################################################
 
 configfile:
-    "SC11A_config.yml"
+    "assemblies_config.yml"
 
 rule all:
     input:
-        expand("{strain}/{assembler}/assembly.fasta", strain=config["ONT"], assembler=config["assembler"]),
-        expand("{strain}/{assembler}/output_dir_removed.txt", strain=config["ONT"],assembler=config["assembler"]),
-        expand("{strain}/{assembler}/bandage_plot.png", strain=config["ONT"],assembler=config["assembler"]), 
+        expand("{strain}/{assembler}/assembly.fasta", strain=config["strain"], assembler=config["assembler"]),
+        expand("{strain}/{assembler}/output_dir_removed", strain=config["strain"],assembler=config["assembler"]),
+        expand("{strain}/{assembler}/bandage_plot.png", strain=config["strain"],assembler=config["assembler_gfa"]), 
 
 #Randomly subsample 1000 Nanopore long reads. Generates a new fastq containing the subsampled reads.
 rule subsample_ONT:
@@ -143,7 +143,7 @@ rule remove_unicycler_output_dir:
         assembly="{strain}/unicycler/assembly.fasta",
         gfa="{strain}/unicycler/assembly.gfa"
     output:
-        touch("{strain}/unicycler/output_dir_removed.txt")
+        touch("{strain}/unicycler/output_dir_removed")
     params:
         output_dir="{strain}/unicycler/unicycler_output/"
     shell:
@@ -195,7 +195,7 @@ rule remove_canu_output_dir:
         assembly="{strain}/canu/assembly.fasta",
         gfa="{strain}/canu/assembly.gfa"
     output:
-        touch("{strain}/canu/output_dir_removed.txt")
+        touch("{strain}/canu/output_dir_removed")
     params:
         output_dir="{strain}/canu/canu_output/"
     shell:
@@ -207,15 +207,16 @@ rule ra_assembly:
     input:
         "ONT_subsampled/{strain}_assembly.fastq.gz"
     output:
-        "{strain}/ra/assembly.fasta"
-    conda:
-        "python2_7.yml"
+        assembly="{strain}/ra/assembly.fasta",
+	dir_removed=touch("{strain}/ra/output_dir_removed")
+    #conda:
+    #    "python2_7.yml"
     log:
         "{strain}/logs/ra.log"
     benchmark:
         "{strain}/benchmarks/ra.assembly.benchmark.txt"
-    shell:
-        "/home/georgia/ra_olin/build/bin/ra -x ont -t 4 {input} > {output} 1>{log}"
+    run:
+       shell( "./ra/build/bin/ra -x ont -t 4 {input} > {output.assembly} 1>{log}")
 
 #flye long read only assembly with the "Assembly dataset of reads", no renaming is needed because flye output is in desired convention 
 rule flye_assembly:
@@ -231,7 +232,7 @@ rule flye_assembly:
     benchmark:
         "{strain}/benchmarks/flye.assembly.benchmark.txt"
     conda:
-        "flye.yml"
+        "assemblies_2_7.yml"
     shell:
         "flye --nano-raw {input} --genome-size 5g --out-dir {params.out_prefix} --plasmids 1>{log}"
 
@@ -261,7 +262,7 @@ rule remove_flye_output_dir:
     input:
         assembly="{strain}/flye/assembly.fasta",
     output:
-        touch("{strain}/flye/output_dir_removed.txt")
+        touch("{strain}/flye/output_dir_removed")
     params:
         output_dir="{strain}/flye/flye_output/"
     shell:
@@ -319,7 +320,7 @@ rule remove_wtdbg2_output_dir:
     input:
         assembly="{strain}/wtdbg2/assembly.fasta",
     output:
-        touch("{strain}/wtdbg2/output_dir_removed.txt")
+        touch("{strain}/wtdbg2/output_dir_removed")
     params:
         output_dir="{strain}/wtdbg2/wtdbg2_output/"
     shell:
@@ -332,8 +333,7 @@ rule Bandage_plot:
     output:
         bandage_plot="{strain}/{assembler}/bandage_plot.png"
     run:
-        if assembler =="canu" or "unicycler" or "flye":
-            shell("Bandage image {input.gfa} {output.bandage_plot}")
+        shell("Bandage image {input.gfa} {output.bandage_plot}")
 
 
 
