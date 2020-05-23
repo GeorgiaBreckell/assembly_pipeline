@@ -232,7 +232,7 @@ rule flye_assembly:
     benchmark:
         "{strain}/benchmarks/flye.assembly.benchmark.txt"
     conda:
-        "assemblies_2_7.yml"
+        "environments/assemblies_2_7.yml"
     shell:
         "flye --nano-raw {input} --genome-size 5g --out-dir {params.out_prefix} --plasmids 1>{log}"
 
