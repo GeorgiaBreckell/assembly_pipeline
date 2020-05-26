@@ -27,13 +27,21 @@
 ###################################################################################
 
 configfile:
-    "assemblies_config.yml"
+    "assemblies.yml"
 
 rule all:
     input:
-        expand("{strain}/{assembler}/assembly.fasta", strain=config["strain"], assembler=config["assembler"]),
-        expand("{strain}/{assembler}/output_dir_removed", strain=config["strain"],assembler=config["assembler"]),
-        expand("{strain}/{assembler}/bandage_plot.png", strain=config["strain"],assembler=config["assembler_gfa"]), 
+        expand("results/{strain}/{assembler}/assembly.fasta", strain=config["strain"], assembler=config["assembler"]),
+       # expand("results/{strain}/{assembler}/output_dir_removed", strain=config["strain"],assembler=config["assembler"]),
+        expand("results/{strain}/{assembler}/bandage_plot.png", strain=config["strain"],assembler=config["assembler_gfa"]),
+        expand("results/{strain}/{assembler}/genome_stats.pooled", strain=config["strain"],assembler=config["assembler"]),
+                expand("results/{strain}/{assembler}/QC/all_nanopore_mapping_coverage.pdf", strain=config["strain"], assembler=config["assembler"]),
+        expand("results/{strain}/{assembler}/QC/all_illumina_mapping_coverage.pdf", strain=config["strain"], assembler=config["assembler"]),
+        expand("results/{strain}/{assembler}/QC/concordent_mapping.txt", strain=config["strain"], assembler=config["assembler"]),
+        expand("results/{strain}/{assembler}/QC/ORF.pdf", strain=config["strain"], assembler=config["assembler"]),
+        expand("results/{strain}/{assembler}/QC/socru.txt",strain=config["strain"], assembler=config["assembler"]),
+        expand("results/{strain}/{assembler}/QC/plasmid_finder/data_csv",strain=config["strain"], assembler=config["assembler"])
+
 
 #Randomly subsample 1000 Nanopore long reads. Generates a new fastq containing the subsampled reads.
 rule subsample_ONT:
@@ -112,14 +120,14 @@ rule unicycler_assembly:
         r1="illumina_subsampled/{strain}_R1_assembly.fastq.gz",
         r2="illumina_subsampled/{strain}_R2_assembly.fastq.gz"
     output:
-        fasta="{strain}/unicycler/unicycler_output/assembly.fasta",
-        gfa="{strain}/unicycler/unicycler_output/assembly.gfa"
+        fasta="results/{strain}/unicycler/unicycler_output/assembly.fasta",
+        gfa="results/{strain}/unicycler/unicycler_output/assembly.gfa"
     params:
-        out_prefix="{strain}/unicycler/unicycler_output/"
+        out_prefix="results/{strain}/unicycler/unicycler_output/"
     log:
-        "{strain}/logs/unicycler.log"
+        "results/{strain}/logs/unicycler.log"
     benchmark:
-        "{strain}/benchmarks/unicycler.assembly.benchmark.txt"
+        "results/{strain}/benchmarks/unicycler.assembly.benchmark.txt"
     threads: 8
     shell:
         "unicycler -1 {input.r1} -2 {input.r2} -l {input.ont} -o {params.out_prefix}" 
@@ -128,11 +136,11 @@ rule unicycler_assembly:
 #Copies the unicycler assembly out of the unicycler output dir
 rule copy_unicycler:
     input:
-        assembly="{strain}/unicycler/unicycler_output/assembly.fasta",
-        gfa="{strain}/unicycler/unicycler_output/assembly.gfa"
+        assembly="results/{strain}/unicycler/unicycler_output/assembly.fasta",
+        gfa="results/{strain}/unicycler/unicycler_output/assembly.gfa"
     output:
-        assembly="{strain}/unicycler/assembly.fasta",
-        gfa="{strain}/unicycler/assembly.gfa"
+        assembly="results/{strain}/unicycler/assembly.fasta",
+        gfa="results/{strain}/unicycler/assembly.gfa"
     run:
         shell("cp {input.assembly} {output.assembly}"), 
         shell("cp {input.gfa} {output.gfa}")   
@@ -140,12 +148,12 @@ rule copy_unicycler:
 #remove unicycler assembly directory   
 rule remove_unicycler_output_dir:
     input:
-        assembly="{strain}/unicycler/assembly.fasta",
-        gfa="{strain}/unicycler/assembly.gfa"
+        assembly="results/{strain}/unicycler/assembly.fasta",
+        gfa="results/{strain}/unicycler/assembly.gfa"
     output:
-        touch("{strain}/unicycler/output_dir_removed")
+        touch("results/{strain}/unicycler/output_dir_removed")
     params:
-        output_dir="{strain}/unicycler/unicycler_output/"
+        output_dir="results/{strain}/unicycler/unicycler_output/"
     shell:
         "rm -r {params.output_dir}"
 
@@ -154,14 +162,14 @@ rule canu_assembly:
     input:
         "ONT_subsampled/{strain}_assembly.fastq.gz"
     output:
-        fasta="{strain}/canu/canu_output/{strain}.contigs.fasta",
-        gfa="{strain}/canu/canu_output/{strain}.unitigs.gfa"
+        fasta="results/{strain}/canu/canu_output/{strain}.contigs.fasta",
+        gfa="results/{strain}/canu/canu_output/{strain}.unitigs.gfa"
     log:
-        "{strain}/logs/canu.log"
+        "results/{strain}/logs/canu.log"
     benchmark:
-        "{strain}/benchmarks/canu.assembly.benchmark.txt"
+        "results/{strain}/benchmarks/canu.assembly.benchmark.txt"
     params:
-        directory="{strain}/canu/canu_output/",
+        directory="results/{strain}/canu/canu_output/",
         prefix="{strain}"
     shell:
         "canu -d {params.directory} -p {params.prefix} genomeSize=5m -nanopore-raw {input} -maxMemory=32g -maxThreads=10 1>{log}" 
@@ -169,22 +177,22 @@ rule canu_assembly:
 #Copies and renames the canu output fasta to generic naming convention 
 rule copy_canu:
     input:
-        assembly="{strain}/canu/canu_output/{strain}.contigs.fasta",
-        gfa="{strain}/canu/canu_output/{strain}.unitigs.gfa"
+        assembly="results/{strain}/canu/canu_output/{strain}.contigs.fasta",
+        gfa="results/{strain}/canu/canu_output/{strain}.unitigs.gfa"
     output:
-        assembly="{strain}/canu/{strain}.contigs.fasta",
-        gfa="{strain}/canu/{strain}.unitigs.gfa"
+        assembly="results/{strain}/canu/{strain}.contigs.fasta",
+        gfa="results/{strain}/canu/{strain}.unitigs.gfa"
     run:
         shell("cp {input.assembly} {output.assembly}"),
         shell("cp {input.gfa} {output.gfa}")
 
 rule rename_canu:
     input:
-        assembly="{strain}/canu/{strain}.contigs.fasta",
-        gfa="{strain}/canu/{strain}.unitigs.gfa"
+        assembly="results/{strain}/canu/{strain}.contigs.fasta",
+        gfa="results/{strain}/canu/{strain}.unitigs.gfa"
     output:
-        assembly="{strain}/canu/assembly.fasta",
-        gfa="{strain}/canu/assembly.gfa"
+        assembly="results/{strain}/canu/assembly.fasta",
+        gfa="results/{strain}/canu/assembly.gfa"
     run:
         shell("cp {input.assembly} {output.assembly}"),
         shell("cp {input.gfa} {output.gfa}")
@@ -192,12 +200,12 @@ rule rename_canu:
 #remove canu assembly directory   
 rule remove_canu_output_dir:
     input:
-        assembly="{strain}/canu/assembly.fasta",
-        gfa="{strain}/canu/assembly.gfa"
+        assembly="results/{strain}/canu/assembly.fasta",
+        gfa="results/{strain}/canu/assembly.gfa"
     output:
-        touch("{strain}/canu/output_dir_removed")
+        touch("results/{strain}/canu/output_dir_removed")
     params:
-        output_dir="{strain}/canu/canu_output/"
+        output_dir="results/{strain}/canu/canu_output/"
     shell:
         "rm -r {params.output_dir}"
 
@@ -207,14 +215,14 @@ rule ra_assembly:
     input:
         "ONT_subsampled/{strain}_assembly.fastq.gz"
     output:
-        assembly="{strain}/ra/assembly.fasta",
-	dir_removed=touch("{strain}/ra/output_dir_removed")
+        assembly="results/{strain}/ra/assembly.fasta",
+	dir_removed=touch("results/{strain}/ra/output_dir_removed")
     #conda:
     #    "python2_7.yml"
     log:
-        "{strain}/logs/ra.log"
+        "results/{strain}/logs/ra.log"
     benchmark:
-        "{strain}/benchmarks/ra.assembly.benchmark.txt"
+        "results/{strain}/benchmarks/ra.assembly.benchmark.txt"
     run:
        shell( "./ra/build/bin/ra -x ont -t 4 {input} > {output.assembly} 1>{log}")
 
@@ -223,14 +231,14 @@ rule flye_assembly:
     input:
         "ONT_subsampled/{strain}_assembly.fastq.gz"
     output:
-        fasta="{strain}/flye/flye_output/assembly.fasta",
-        gfa="{strain}/flye/flye_output/assembly_graph.gfa"
+        fasta="results/{strain}/flye/flye_output/assembly.fasta",
+        gfa="results/{strain}/flye/flye_output/assembly_graph.gfa"
     params:
-        out_prefix="{strain}/flye/flye_output/"
+        out_prefix="results/{strain}/flye/flye_output/"
     log:
-        "{strain}/logs/flye.log"
+        "results/{strain}/logs/flye.log"
     benchmark:
-        "{strain}/benchmarks/flye.assembly.benchmark.txt"
+        "results/{strain}/benchmarks/flye.assembly.benchmark.txt"
     conda:
         "environments/assemblies_2_7.yml"
     shell:
@@ -239,11 +247,11 @@ rule flye_assembly:
 #Copies the flye assembly out of the flye output dir
 rule copy_flye:
     input:
-        assembly="{strain}/flye/flye_output/assembly.fasta",
-        gfa="{strain}/flye/flye_output/assembly_graph.gfa"
+        assembly="results/{strain}/flye/flye_output/assembly.fasta",
+        gfa="results/{strain}/flye/flye_output/assembly_graph.gfa"
     output:
-        assembly="{strain}/flye/assembly.fasta",
-        gfa="{strain}/flye/assembly_graph.gfa"
+        assembly="results/{strain}/flye/assembly.fasta",
+        gfa="results/{strain}/flye/assembly_graph.gfa"
     run:
         shell("cp {input.assembly} {output.assembly}"),
         shell("cp {input.gfa} {output.gfa}")
@@ -251,20 +259,20 @@ rule copy_flye:
 #rename GFA file to standard convention
 rule rename_flye:
     input:
-        gfa="{strain}/flye/assembly_graph.gfa"
+        gfa="results/{strain}/flye/assembly_graph.gfa"
     output:
-        "{strain}/flye/assembly.gfa"
+        "results/{strain}/flye/assembly.gfa"
     run:
         shell("mv {input.gfa} {output}")
 
 #rule to remove flye assembly directory   
 rule remove_flye_output_dir:
     input:
-        assembly="{strain}/flye/assembly.fasta",
+        assembly="results/{strain}/flye/assembly.fasta",
     output:
-        touch("{strain}/flye/output_dir_removed")
+        touch("results/{strain}/flye/output_dir_removed")
     params:
-        output_dir="{strain}/flye/flye_output/"
+        output_dir="results/{strain}/flye/flye_output/"
     shell:
         "rm -r {params.output_dir}"
 
@@ -273,69 +281,482 @@ rule wtdbg2_assembly_1:
         input:
             ont="ONT_subsampled/{strain}_assembly.fastq.gz"
         output:
-            "{strain}/wtdbg2/wtdbg2_output/{strain}.ctg.lay.gz"
+            "results/{strain}/wtdbg2/wtdbg2_output/{strain}.ctg.lay.gz"
         params:
-            out_prefix="{strain}/wtdbg2/wtdbg2_output/{strain}"
+            out_prefix="results/{strain}/wtdbg2/wtdbg2_output/{strain}"
         log:
-            "{strain}/log/wtdgb2_1.log"
+            "results/{strain}/log/wtdgb2_1.log"
         benchmark:
-            "{strain}/benchmarks/wtdbg2_1.assembly.benchmark.txt"
+            "results/{strain}/benchmarks/wtdbg2_1.assembly.benchmark.txt"
         shell:
             "wtdbg2 -x ont -g 4.8m -t 16 -i {input.ont} -o {params.out_prefix} 1>{log}"
 
 #Second half of the redbean assembly
 rule wtdbg2_assembly_2:
         input:
-            wtdbg2_config="{strain}/wtdbg2/wtdbg2_output/{strain}.ctg.lay.gz"
+            wtdbg2_config="results/{strain}/wtdbg2/wtdbg2_output/{strain}.ctg.lay.gz"
         output:
-            "{strain}/wtdbg2/wtdbg2_output/{strain}.ctg.fa" 
+            "results/{strain}/wtdbg2/wtdbg2_output/{strain}.ctg.fa" 
         params:
-            out_prefix="{strain}/wtdbg2/wtdbg2_output/{strain}"
+            out_prefix="results/{strain}/wtdbg2/wtdbg2_output/{strain}"
         log:
-            "{strain}/log/wtdgb2_2.log"
+            "results/{strain}/log/wtdgb2_2.log"
         benchmark:
-            "{strain}/benchmarks/wtdbg2_2.assembly.benchmark.txt"
+            "results/{strain}/benchmarks/wtdbg2_2.assembly.benchmark.txt"
         shell:
             "wtpoa-cns -t 16 -i {input} -o {params.out_prefix}.ctg.fa 1>{log}"
 
 #Copies and renames the wtdbg2 output fasta to generic naming convention 
 rule copy_wtdbg2_1:
     input:
-        "{strain}/wtdbg2/wtdbg2_output/{strain}.ctg.fa"
+        "results/{strain}/wtdbg2/wtdbg2_output/{strain}.ctg.fa"
     output:
-        "{strain}/wtdbg2/{strain}.ctg.fa" 
+        "results/{strain}/wtdbg2/{strain}.ctg.fa" 
     shell:
         "cp {input} {output}"
 
 rule rename_wtdbg2_1:
     input:
-        "{strain}/wtdbg2/{strain}.ctg.fa"
+        "results/{strain}/wtdbg2/{strain}.ctg.fa"
     output:
-        "{strain}/wtdbg2/assembly.fasta"
+        "results/{strain}/wtdbg2/assembly.fasta"
     shell:
         "mv {input} {output}"
 
 #rule to remove wtdbg2 assembly directory   
 rule remove_wtdbg2_output_dir:
     input:
-        assembly="{strain}/wtdbg2/assembly.fasta",
+        assembly="results/{strain}/wtdbg2/assembly.fasta",
     output:
-        touch("{strain}/wtdbg2/output_dir_removed")
+        touch("results/{strain}/wtdbg2/output_dir_removed")
     params:
-        output_dir="{strain}/wtdbg2/wtdbg2_output/"
+        output_dir="results/{strain}/wtdbg2/wtdbg2_output/"
     shell:
         "rm -r {params.output_dir}"
 
 #Bandage plots of the assembly graph for each assembler (except Ra and wtdbg2 - no .gfa file produced) 
 rule Bandage_plot:
     input:
-        gfa="{strain}/{assembler}/assembly.gfa"
+        gfa="results/{strain}/{assembler}/assembly.gfa"
     output:
-        bandage_plot="{strain}/{assembler}/bandage_plot.png"
+        bandage_plot="results/{strain}/{assembler}/bandage_plot.png"
     run:
         shell("Bandage image {input.gfa} {output.bandage_plot}")
 
+###GENOME POLISHING
 
+#First alignment for the first round of polishing. Assembly reads are aligned to the assembly using Minimap2
+#This needs to be a seperate input for each assembler as they all have different 
+#output formats, following this first round of polishing the different assemblers can be treated the same 
+
+rule Minimap2_round1:
+    input:
+        reads="ONT/{strain}.fastq.gz",
+        assembly="results/{strain}/{assembler}/assembly.fasta",
+    output:
+        alignment=temp("results/{strain}/{assembler}/polishing/Minimap2_round1.sam"),
+    conda:
+        "environments/base.yml"
+    shell:
+        "minimap2 -a {input.assembly} {input.reads} > {output.alignment}"
+
+#First round of Racon polishing using Minimap2 alignments, assembly reads and the assembly
+rule Racon_round1:
+    input:
+        reads="ONT/{strain}.fastq.gz", 
+        alignment="results/{strain}/{assembler}/polishing/Minimap2_round1.sam",
+        assembly="results/{strain}/{assembler}/assembly.fasta",
+    output:
+        Racon_round1="results/{strain}/{assembler}/polishing/Racon_round1.fasta",
+    run:
+        shell("racon -m 8 -x -6 -g -8 -w 500 {input.reads} {input.alignment} {input.assembly} > {output.Racon_round1}"),
+
+#Second alignment for polishing, the output from the first round of polishing is used as the input assembly. 
+rule Minimap2_round2:
+    input:
+        reads="ONT/{strain}.fastq.gz",
+        assembly="results/{strain}/{assembler}/polishing/Racon_round1.fasta",
+
+    output:
+        alignment=temp("results/{strain}/{assembler}/polishing/Minimap2_round2.sam"),
+    run:
+        shell("minimap2 -a {input.assembly} {input.reads} > {output.alignment}"),
+
+#Second round of Racon polishing. The output from the first round is used as the input assembly along with the original reads 
+#and the alignment file of the raw reads to first racon output.
+rule Racon_round2:
+    input:
+        reads="ONT/{strain}.fastq.gz",
+        alignment="results/{strain}/{assembler}/polishing/Minimap2_round2.sam",
+        assembly="results/{strain}/{assembler}/polishing/Racon_round1.fasta",
+    output:
+        Racon_round2="results/{strain}/{assembler}/polishing/Racon_round2.fasta",
+    run:
+        shell("racon -m 8 -x -6 -g -8 -w 500 {input.reads} {input.alignment} {input.assembly} > {output.Racon_round2}")
+
+#Third alignment for polishing, the output from the second round of polishing is used as the input assembly.
+rule Minimap2_round3:
+    input:
+        reads="ONT/{strain}.fastq.gz",
+        assembly="results/{strain}/{assembler}/polishing/Racon_round2.fasta",
+    output:
+        alignment=temp("results/{strain}/{assembler}/polishing/Minimap2_round3.sam"),
+    run:
+        shell("minimap2 -a {input.assembly} {input.reads} > {output.alignment}"),
+
+#Third round of Racon polishing. The output from the second round is used as the input assembly along with the original reads 
+#and the alignment file of the raw reads to second racon output.
+rule Racon_round3:
+    input:
+        reads="ONT/{strain}.fastq.gz",
+        alignment="results/{strain}/{assembler}/polishing/Minimap2_round3.sam",
+        assembly="results/{strain}/{assembler}/polishing/Racon_round2.fasta",
+    output:
+        Racon_round3="results/{strain}/{assembler}/polishing/Racon_round3.fasta",
+    run:
+        shell("racon -m 8 -x -6 -g -8 -w 500 {input.reads} {input.alignment} {input.assembly} > {output.Racon_round3}"),
+
+#Fouth alignment for polishing, the output from the third round of polishing is used as the input assembly.
+rule Minimap2_round4:
+    input:
+        reads="ONT/{strain}.fastq.gz",
+        assembly="results/{strain}/{assembler}/polishing/Racon_round3.fasta",
+    output:
+        alignment=temp("results/{strain}/{assembler}/polishing/Minimap2_round4.sam"),
+    run:
+        shell("minimap2 -a {input.assembly} {input.reads} > {output.alignment}"),
+
+#Fouth round of Racon polishing. The output from the third round is used as the input assembly along with the original reads 
+#and the alignment file of the raw reads to third racon output.
+rule Racon_round4:
+    input:
+        reads="ONT/{strain}.fastq.gz",
+        alignment="results/{strain}/{assembler}/polishing/Minimap2_round4.sam",
+        assembly="results/{strain}/{assembler}/polishing/Racon_round3.fasta",
+    output:
+        Racon_round4="results/{strain}/{assembler}/polishing/Racon_round4.fasta",
+    run:
+        shell("racon -m 8 -x -6 -g -8 -w 500 {input.reads} {input.alignment} {input.assembly} > {output.Racon_round4}"),
+
+#BWA indexing of fouth Racon output.  
+rule BWA_index_Racon_polished: 
+    input:
+        assembly="results/{strain}/{assembler}/polishing/Racon_round4.fasta",
+    output:
+        touch("results/{strain}/{assembler}/polishing/racon_round4_makeidx.done"),
+    run:
+        shell("bwa index {input.assembly}"),
+
+#BWA mem aligns Illumina reads to the fouth racon output (partially polished genome)
+rule BWA_mem_illumina: 
+    input:
+        R1="illumina/{strain}_R1.fastq.gz", 
+        R2="illumina/{strain}_R2.fastq.gz", 
+        idxdone="results/{strain}/{assembler}/polishing/racon_round4_makeidx.done",
+    output:
+        mapping=temp("results/{strain}/{assembler}/polishing/Illumina_mapping.sam"),
+    params:
+        indexed_fasta="results/{strain}/{assembler}/polishing/Racon_round4.fasta",
+    run:
+        shell("bwa mem {params.indexed_fasta} {input.R1} {input.R2} > {output.mapping}"),
+
+#BWA mem alignment is sorted for input into Pilon
+rule sorted_BWA_mem_alignment: 
+    input:
+        mapping="results/{strain}/{assembler}/polishing/Illumina_mapping.sam",   
+    output:
+        "results/{strain}/{assembler}/polishing/Illumina_mapping_sorted.bam",   
+    run:
+        shell("samtools sort {input.mapping} -o {output}"),
+
+#BWA mem sorted alignment is indexed 
+rule indexed_BWA_mem_alignment:
+    input:
+        "results/{strain}/{assembler}/polishing/Illumina_mapping_sorted.bam",
+    output:
+        touch("results/{strain}/{assembler}/polishing/BWA_alignment_makeidx.done"),
+    run:
+        shell("samtools index {input}"),
+
+#Pilon polish the genome using Illumina short reads
+rule Pilon_polish: 
+    input:
+        assembly="results/{strain}/{assembler}/polishing/Racon_round4.fasta",
+        bam="results/{strain}/{assembler}/polishing/Illumina_mapping_sorted.bam",
+        idxdone="results/{strain}/{assembler}/polishing/BWA_alignment_makeidx.done",
+    output:
+        pilon="results/{strain}/{assembler}/polishing/pilon/pilon.fasta",
+    params:
+        outdir="results/{strain}/{assembler}/polishing/pilon/",
+    run:
+        shell("pilon --genome {input.assembly} --bam {input.bam} --outdir {params.outdir}"),
+
+#Index the pilon polished output
+rule BWA_index_pilon: 
+    input:
+        "results/{strain}/{assembler}/polishing/pilon/pilon.fasta",
+    output:
+        touch("results/{strain}/{assembler}/polishing/pilon/makeidx.done"),
+    run:
+        shell("bwa index {input}"),
+
+#BWA mem is used to align the Illumina reads to the indexed Pilon output
+#For this step the Illumina reads need to be combined, this is NOT included in this snakefile
+rule Illumina_on_pilon_alignment: 
+    input:
+        combined_illumina="illumina/{strain}_illumina.fastq.gz",
+        idxdone_pilon="results/{strain}/{assembler}/polishing/pilon/makeidx.done",
+    output:
+        temp("results/{strain}/{assembler}/polishing/pilon/all_illumina_mapping_{strain}.sam")
+    params:
+        indexed_fasta="results/{strain}/{assembler}/polishing/pilon/pilon.fasta"
+    shell:
+        "bwa mem {params.indexed_fasta} {input.combined_illumina} > {output}"
+
+#Polish the Pilon output with Racon using Illumina reads. Generates the Final polished genome, output to the main directory
+rule Racon_illumina:
+    input:
+        combined_illumina="illumina/{strain}_illumina.fastq.gz",
+        alignment="results/{strain}/{assembler}/polishing/pilon/all_illumina_mapping_{strain}.sam",
+        assembly="results/{strain}/{assembler}/polishing/pilon/pilon.fasta"
+    output:
+        Racon_illumina="results/{strain}/{assembler}/polished_genome.fasta"
+    run:
+        shell("racon -m 8 -x -6 -g -8 -w 500 {input.combined_illumina} {input.alignment} {input.assembly} > {output.Racon_illumina}")
+
+#Making Final Genome stats file
+rule genome_stats: 
+        input:
+            "results/{strain}/{assembler}/polished_genome.fasta"
+        output:
+            "results/{strain}/{assembler}/genome_stats.txt"
+        shell:
+            "seqkit stats {input} > {output}" 
+
+rule pooled_stats:
+        input:
+            "results/{strain}/{assembler}/genome_stats.txt"
+        output:
+            touch("results/{strain}/{assembler}/genome_stats.pooled")
+        params:
+            "results/{assembler}_genome_stats.txt"
+        run:
+           shell("cat {input} >> {params}")
+
+####Assembly QC 
+
+###Coverage and Concordent read assesment
+#Index the polished genome for mapping metrics
+rule BWA_index: 
+    input:
+        "results/{strain}/{assembler}/polished_genome.fasta"
+    output:
+        touch("results/{strain}/{assembler}/polished_genome.IDXDONE")
+    shell:
+        "bwa index {input}" 
+
+#Mapping all illumina reads to the genome
+rule BWA_mem_illumina_all: 
+    input:
+        R1="illumina/{strain}_R1.fastq.gz", 
+        R2="illumina/{strain}_R2.fastq.gz",
+        idxdone="results/{strain}/{assembler}/polished_genome.IDXDONE"
+    output:
+        temp("results/{strain}/{assembler}/QC/all_illumina_mapping.sam")
+    params:
+        indexed_fasta="results/{strain}/{assembler}/polished_genome.fasta"
+    shell:
+        "bwa mem {params.indexed_fasta} {input.R1} {input.R2} > {output}"
+
+#Mapping the 10,000 withheld Illumina reads to the genome
+rule BWA_mem_illumina_WH: 
+    input:
+        R1="illumina_subsampled/{strain}_R1_WH.fastq.gz", 
+        R2="illumina_subsampled/{strain}_R2_WH.fastq.gz",
+        idxdone="results/{strain}/{assembler}/polished_genome.IDXDONE"
+    output:
+        temp("results/{strain}/{assembler}/QC/WH_illumina_mapping.sam")
+    params:
+        indexed_fasta="results/{strain}/{assembler}/polished_genome.fasta"
+    shell:
+        "bwa mem {params.indexed_fasta} {input.R1} {input.R2} > {output}"
+
+#Mapping nanopore reads to the genome
+rule BWA_mem_nanopore: 
+    input:
+        reads="ONT/{strain}.fastq.gz",
+        idxdone="results/{strain}/{assembler}/polished_genome.IDXDONE"
+    output:
+        temp("results/{strain}/{assembler}/QC/nanopore_mapping.sam")               
+    params:              
+        indexed_fasta="results/{strain}/{assembler}/polished_genome.fasta"
+    shell:
+        "bwa mem {params.indexed_fasta} {input.reads}  > {output}"
+
+#Sorting the alingment files to allow extraction of coverage and concordant mapping data
+rule samtools_sort_all:
+    input:
+        "results/{strain}/{assembler}/QC/all_illumina_mapping.sam"
+    output:
+        "results/{strain}/{assembler}/QC/all_illumina_mapping_sorted.bam"
+    shell:
+        "samtools sort {input} -o {output}"
+
+rule samtools_sort_WH:
+    input:
+        "results/{strain}/{assembler}/QC/WH_illumina_mapping.sam"
+    output:
+        "results/{strain}/{assembler}/QC/WH_illumina_mapping_sorted.bam"
+    shell:
+        "samtools sort {input} -o {output}"
+
+rule samtools_sort_nanopore:
+    input:
+        "results/{strain}/{assembler}/QC/nanopore_mapping.sam" 
+    output:
+        "results/{strain}/{assembler}/QC/nanopore_mapping_sorted.bam"
+    shell:
+        "samtools sort {input} -o {output}"
+
+#Extracting coverage stats for the alignments.
+rule samtools_coverage_illumina:
+    input:
+        "results/{strain}/{assembler}/QC/all_illumina_mapping_sorted.bam"
+    output:
+        "results/{strain}/{assembler}/QC/all_illumina_mapping_coverage.txt"
+    shell:
+        "samtools depth {input} > {output}"
+
+rule samtools_coverage_nanopore:
+    input:
+        "results/{strain}/{assembler}/QC/nanopore_mapping_sorted.bam"
+    output:
+        "results/{strain}/{assembler}/QC/all_nanopore_mapping_coverage.txt"
+    shell:
+        "samtools depth {input} > {output}"
+
+#Calculating concordant reads for Illumina alignments        
+rule illumina_WH_mapping_concordent_reads:
+    input:  
+        "results/{strain}/{assembler}/QC/WH_illumina_mapping_sorted.bam"
+    output:
+        "results/{strain}/{assembler}/QC/illumina_WH_mapping_concordent_reads.txt"
+    shell:
+        "samtools view -c -f 0x2 {input} > {output}"
+
+rule illumina_all_mapping_concordent_reads:
+    input:  
+        "results/{strain}/{assembler}/QC/all_illumina_mapping_sorted.bam"
+    output:
+        "results/{strain}/{assembler}/QC/illumina_all_mapping_concordent_reads.txt"
+    shell:
+        "samtools view -c -f 0x2 {input} > {output}"
+
+#Make one combined file of concordent reads for all strains 
+rule Illumina_concoordent_reads_file:
+    input:
+        "results/{strain}/{assembler}/QC/illumina_WH_mapping_concordent_reads.txt"
+    output:
+        touch("results/{strain}/{assembler}/QC/concordent_mapping.txt")
+    params:
+        "{assembler}_concordent_mapping.txt"
+    run:
+        shell("echo {input} >> {params}"),
+        shell("cat {input} >> {params}")
+
+#Plotting coverage stats
+rule plot_illumina_coverage:
+    input:
+        "results/{strain}/{assembler}/QC/all_illumina_mapping_coverage.txt"
+    output:
+        "results/{strain}/{assembler}/QC/all_illumina_mapping_coverage.pdf"
+    shell:
+        "Rscript ./scripts/coverage_plots_g.R {input}"
+
+rule plot_nanopore_coverage:
+    input:
+        "results/{strain}/{assembler}/QC/all_nanopore_mapping_coverage.txt"
+    output:
+        "results/{strain}/{assembler}/QC/all_nanopore_mapping_coverage.pdf"
+    shell:
+        "Rscript ./scripts/coverage_plots_g.R {input}"
+
+###Socru assesment
+#Run socru assesment on assemblies 
+rule socru:
+    input:
+        "results/{strain}/{assembler}/polished_genome.fasta"
+    output:
+        "results/{strain}/{assembler}/QC/socru.txt"
+    shell:
+        "socru Escherichia_coli {input} > {output}"
+
+#Make one combined file of Socru output for all strains
+rule Scoru_file:
+    input:
+        "results/{strain}/{assembler}/QC/socru.txt"
+    output:
+        touch("results/{strain}/{assembler}/QC/socru.txt")
+    params:
+        "{assembler}_socru_mapping.txt"
+    run:
+        shell("echo {input} >> {params}"),
+        shell("cat {input} >> {params}")
+
+###ORF assesment
+#Run prodigal step of ORF assesment
+rule ORF_prodigal:
+        input: 
+            "results/{strain}/{assembler}/polished_genome.fasta"
+        output: 
+            "results/{strain}/{assembler}/QC/ORF.faa"
+        benchmark: 
+            "results/{strain}/{assembler}/benchmarks/{strain}.prodigal.bench.txt"
+        shell: 
+            "prodigal -a {output} -q -i {input}"
+
+#Run Diamond step of ORF assesment
+rule ORF_diamond:
+        input: 
+            "results/{strain}/{assembler}/QC/ORF.faa"
+        output: 
+            "results/{strain}/{assembler}/QC/ORF.data"
+        threads: 
+            32
+        params:
+                db="/data/databases/diamond/uniprot.dmnd",
+                of="6 qlen slen"
+        benchmark: 
+            "{strain}/{assembler}/benchmarks/{strain}.diamond.bench.txt"
+        shell: 
+            "diamond blastp --threads 32 --max-target-seqs 1 --db {params.db} --query {input} --outfmt {params.of} --out {output}"
+
+#Run plotting step of ORF assesment
+rule ORF_hist:
+        input: 
+            "results/{strain}/{assembler}/QC/ORF.data"
+        output: 
+            "results/{strain}/{assembler}/QC/ORF.pdf"
+        shell: 
+            "R --slave --no-restore --file=hist_orf_lengths.R --args {input} {output}"
+
+#Run plasmid finder program 
+rule plasmid_finder:
+        input:
+            "results/{strain}/{assembler}/polished_genome.fasta"
+        output:
+            "results/{strain}/{assembler}/QC/plasmid_finder/data.json"
+        shell: 
+            "plasmidfinder.py -i {input} -o {output}"
+
+#Make CSV file of results 
+rule plasmid_finder_csv:
+        input:
+            "results/{strain}/{assembler}/QC/plasmid_finder/data.json"
+        output:
+            touch("results/{strain}/{assembler}/QC/plasmid_finder/data_csv")
+        shell:
+            "python plasmid_finder_json_parsing.py {input}"
 
 
 
