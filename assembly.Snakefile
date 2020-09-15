@@ -27,21 +27,18 @@
 ###################################################################################
 
 configfile:
-    "assemblies.yml"
+    "configs/assemblies.yml"
 
 rule all:
     input:
         expand("results/{strain}/{assembler}/assembly.fasta", strain=config["strain"], assembler=config["assembler"]),
-       # expand("results/{strain}/{assembler}/output_dir_removed", strain=config["strain"],assembler=config["assembler"]),
+        expand("results/{strain}/{assembler}/output_dir_removed", strain=config["strain"],assembler=config["assembler"]),
         expand("results/{strain}/{assembler}/bandage_plot.png", strain=config["strain"],assembler=config["assembler_gfa"]),
         expand("results/{strain}/{assembler}/genome_stats.pooled", strain=config["strain"],assembler=config["assembler"]),
-                expand("results/{strain}/{assembler}/QC/all_nanopore_mapping_coverage.pdf", strain=config["strain"], assembler=config["assembler"]),
+        expand("results/{strain}/{assembler}/QC/all_nanopore_mapping_coverage.pdf", strain=config["strain"], assembler=config["assembler"]),
         expand("results/{strain}/{assembler}/QC/all_illumina_mapping_coverage.pdf", strain=config["strain"], assembler=config["assembler"]),
-        expand("results/{strain}/{assembler}/QC/concordent_mapping.txt", strain=config["strain"], assembler=config["assembler"]),
         expand("results/{strain}/{assembler}/QC/ORF.pdf", strain=config["strain"], assembler=config["assembler"]),
-        expand("results/{strain}/{assembler}/QC/socru.txt",strain=config["strain"], assembler=config["assembler"]),
-        expand("results/{strain}/{assembler}/QC/plasmid_finder/data_csv",strain=config["strain"], assembler=config["assembler"])
-
+        expand("results/final_table/{strain}_{assembler}_all_metrics_merged.marker", strain=config["strain"],assembler=config["assembler"])
 
 #Randomly subsample 1000 Nanopore long reads. Generates a new fastq containing the subsampled reads.
 rule subsample_ONT:
@@ -172,7 +169,8 @@ rule canu_assembly:
         directory="results/{strain}/canu/canu_output/",
         prefix="{strain}"
     shell:
-        "canu -d {params.directory} -p {params.prefix} genomeSize=5m -nanopore-raw {input} -maxMemory=32g -maxThreads=10 1>{log}" 
+        "canu -d {params.directory} -p {params.prefix} genomeSize=5m -nanopore-raw {input} -maxMemory=32g -maxThreads=10" 
+        "1>{log}" 
 
 #Copies and renames the canu output fasta to generic naming convention 
 rule copy_canu:
@@ -209,22 +207,21 @@ rule remove_canu_output_dir:
     shell:
         "rm -r {params.output_dir}"
 
-#ra long read only assembly with the "Assembly dataset of reads", no renmaing needed as output is in desired convention. 
-#ra output as single fasta file so no movement out of the "output_dir" is needed either 
-rule ra_assembly:
+#Raven long read only assembly with the "Assembly dataset of reads", no renmaing needed as output is in desired convention. 
+#Raven output as single fasta file so no movement out of the "output_dir" is needed either 
+rule raven_assembly:
     input:
         "ONT_subsampled/{strain}_assembly.fastq.gz"
     output:
-        assembly="results/{strain}/ra/assembly.fasta",
-	dir_removed=touch("results/{strain}/ra/output_dir_removed")
-    #conda:
-    #    "python2_7.yml"
+        assembly="results/{strain}/raven/assembly.fasta",
+        dir_removed=touch("results/{strain}/raven/output_dir_removed")
     log:
-        "results/{strain}/logs/ra.log"
+        "results/{strain}/logs/raven.log"    
     benchmark:
-        "results/{strain}/benchmarks/ra.assembly.benchmark.txt"
-    run:
-       shell( "./ra/build/bin/ra -x ont -t 4 {input} > {output.assembly} 1>{log}")
+        "results/{strain}/benchmarks/raven.assembly.benchmark.txt"
+    shell:
+        "raven {input} > {output.assembly}"
+        "1> {log} "
 
 #flye long read only assembly with the "Assembly dataset of reads", no renaming is needed because flye output is in desired convention 
 rule flye_assembly:
@@ -242,7 +239,8 @@ rule flye_assembly:
     conda:
         "environments/assemblies_2_7.yml"
     shell:
-        "flye --nano-raw {input} --genome-size 5g --out-dir {params.out_prefix} --plasmids 1>{log}"
+        "flye --nano-raw {input} --out-dir {params.out_prefix} --plasmids" 
+        "1>{log}"
 
 #Copies the flye assembly out of the flye output dir
 rule copy_flye:
@@ -285,11 +283,12 @@ rule wtdbg2_assembly_1:
         params:
             out_prefix="results/{strain}/wtdbg2/wtdbg2_output/{strain}"
         log:
-            "results/{strain}/log/wtdgb2_1.log"
+            "results/{strain}/logs/wtdgb2_1.log"
         benchmark:
             "results/{strain}/benchmarks/wtdbg2_1.assembly.benchmark.txt"
         shell:
-            "wtdbg2 -x ont -g 4.8m -t 16 -i {input.ont} -o {params.out_prefix} 1>{log}"
+            "wtdbg2 -x ont -g 4.8m -t 16 -i {input.ont} -o {params.out_prefix}" 
+            "1>{log}"
 
 #Second half of the redbean assembly
 rule wtdbg2_assembly_2:
@@ -300,11 +299,12 @@ rule wtdbg2_assembly_2:
         params:
             out_prefix="results/{strain}/wtdbg2/wtdbg2_output/{strain}"
         log:
-            "results/{strain}/log/wtdgb2_2.log"
+            "results/{strain}/logs/wtdgb2_2.log"
         benchmark:
             "results/{strain}/benchmarks/wtdbg2_2.assembly.benchmark.txt"
         shell:
-            "wtpoa-cns -t 16 -i {input} -o {params.out_prefix}.ctg.fa 1>{log}"
+            "wtpoa-cns -t 16 -i {input} -o {params.out_prefix}.ctg.fa" 
+            "1>{log}"
 
 #Copies and renames the wtdbg2 output fasta to generic naming convention 
 rule copy_wtdbg2_1:
@@ -531,17 +531,17 @@ rule genome_stats:
         output:
             "results/{strain}/{assembler}/genome_stats.txt"
         shell:
-            "seqkit stats {input} > {output}" 
+            "seqkit stats -T {input} > {output}" 
 
 rule pooled_stats:
         input:
             "results/{strain}/{assembler}/genome_stats.txt"
         output:
-            touch("results/{strain}/{assembler}/genome_stats.pooled")
+            touch("results/{strain}/{assembler}/genome_stats.pooled"),
         params:
             "results/{assembler}_genome_stats.txt"
-        run:
-           shell("cat {input} >> {params}")
+        shell:
+           "cat {input} >> {params}"
 
 ####Assembly QC 
 
@@ -652,6 +652,14 @@ rule illumina_all_mapping_concordent_reads:
     shell:
         "samtools view -c -f 0x2 {input} > {output}"
 
+rule illumina_WH_non_mapping_concordent_reads:
+    input:
+        "results/{strain}/{assembler}/QC/WH_illumina_mapping_sorted.bam"
+    output:
+        "results/{strain}/{assembler}/QC/illumina_WH_non_mapping_concordent_reads.txt"
+    shell:
+        "samtools view -c -f 0x12 {input} > {output}"
+
 #Make one combined file of concordent reads for all strains 
 rule Illumina_concoordent_reads_file:
     input:
@@ -660,6 +668,17 @@ rule Illumina_concoordent_reads_file:
         touch("results/{strain}/{assembler}/QC/concordent_mapping.txt")
     params:
         "{assembler}_concordent_mapping.txt"
+    run:
+        shell("echo {input} >> {params}"),
+        shell("cat {input} >> {params}")
+
+rule Illumina_non_mapping_reads_file:
+    input:
+        "results/{strain}/{assembler}/QC/illumina_WH_non_mapping_concordent_reads.txt"
+    output:
+        touch("results/{strain}/{assembler}/QC/non_mapping.txt")
+    params:
+        "{assembler}_non_mapping.txt"
     run:
         shell("echo {input} >> {params}"),
         shell("cat {input} >> {params}")
@@ -727,7 +746,7 @@ rule ORF_diamond:
                 db="/data/databases/diamond/uniprot.dmnd",
                 of="6 qlen slen"
         benchmark: 
-            "{strain}/{assembler}/benchmarks/{strain}.diamond.bench.txt"
+            "results/{strain}/{assembler}/benchmarks/{strain}.diamond.bench.txt"
         shell: 
             "diamond blastp --threads 32 --max-target-seqs 1 --db {params.db} --query {input} --outfmt {params.of} --out {output}"
 
@@ -738,26 +757,62 @@ rule ORF_hist:
         output: 
             "results/{strain}/{assembler}/QC/ORF.pdf"
         shell: 
-            "R --slave --no-restore --file=hist_orf_lengths.R --args {input} {output}"
+            "R --slave --no-restore --file=./scripts/hist_orf_lengths.R --args {input} {output}"
 
 #Run plasmid finder program 
 rule plasmid_finder:
         input:
             "results/{strain}/{assembler}/polished_genome.fasta"
         output:
-            "results/{strain}/{assembler}/QC/plasmid_finder/data.json"
+            touch("results/{strain}/{assembler}/QC/plasmidfinder.marker")
+        params:
+            "results/{strain}/{assembler}/QC/"
         shell: 
-            "plasmidfinder.py -i {input} -o {output}"
+            "plasmidfinder.py -i {input} -o {params} -p /data/databases/plasmidfinder_db/"
 
 #Make CSV file of results 
 rule plasmid_finder_csv:
         input:
-            "results/{strain}/{assembler}/QC/plasmid_finder/data.json"
+            "results/{strain}/{assembler}/QC/plasmidfinder.marker"
+        params:
+            "results/{strain}/{assembler}/QC/data.json"
         output:
-            touch("results/{strain}/{assembler}/QC/plasmid_finder/data_csv")
+            touch("results/{strain}/{assembler}/QC/plasmid_finder_data_csv")
         shell:
-            "python plasmid_finder_json_parsing.py {input}"
+            "python ./scripts/plasmid_finder_json_parsing.py {params}"
 
 
+rule mlplasmids:
+        input: 
+            "results/{strain}/{assembler}/polished_genome.fasta"
+        output:
+            "results/{strain}/{assembler}/QC/mlplasmids_tab"
+        shell:
+            "Rscript mlplasmids/scripts/run_mlplasmids.R {input} {output} 0.01 'Escherichia coli'"
+
+rule mlplasmids_by_assembler:
+        input:
+            "results/{strain}/{assembler}/QC/mlplasmids_tab"
+        output:
+            touch("results/{strain}/{assembler}/QC/mlplasmids_tab_merged")
+        shell: 
+            "python scripts/merge_mlplasmids.py {input}"
+
+rule make_tab_output:
+        input: 
+            ORF= "results/{strain}/{assembler}/QC/ORF.data",
+            genome_stats= "results/{strain}/{assembler}/genome_stats.txt",
+            mlplasmids= "results/{strain}/{assembler}/QC/mlplasmids_tab",
+            plasmid_finder_marker="results/{strain}/{assembler}/QC/plasmid_finder_data_csv",
+            concordant_reads="results/{strain}/{assembler}/QC/illumina_WH_mapping_concordent_reads.txt",
+            non_mapping_reads="results/{strain}/{assembler}/QC/illumina_WH_non_mapping_concordent_reads.txt",
+            socru="results/{strain}/{assembler}/QC/socru.txt"
+        output: 
+            touch("results/final_table/{strain}_{assembler}_all_metrics_merged.marker")
+        params: 
+            plasmid_finder="results/{strain}/{assembler}/QC/plasmid_finder.csv"
+
+        shell:
+            "python scripts/All_parsing.py {input.ORF} {input.genome_stats} {input.mlplasmids} {params.plasmid_finder} {input.concordant_reads} {input.non_mapping_reads} {input.socru}"
 
 
