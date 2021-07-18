@@ -1,26 +1,14 @@
 ##################################################################################
 ###     Assembly pipeline for hybrid assemblies of ONT and illumina data
 ###
-###     Part 1 of 3 To be used with assembly_polishing.Snakefile and 
-###     assesment.Snakefile. 
-###     
-###     Produces hybrid assemblies using Unicycler V0.4.4
-###     long read only assemblies are produced using:
-###     Canu, Flye, Ra, Wtdbg2 (redbean)                        
-###     The first step of this pipeline,subsets both the ONT 
-###     and Illumina data, the majority of reads are used in 
-###     the assembly, while withheld reads are used for mapping
-###     during QC in part 3 (assesment.Snakefile). 
-###     
-###
 ###     Reads should be in a directoy named ONT and Illumina respectively
 ###     and output will be in an individual directory for each strain, 
-###     organsied by assembler. A fasta file, GFA file and bandage plot
-###     are produced from running this snakemake. 
+###     organsied by assembler. A table of results including genome stats and QC measures is
+###	the final output. 
 ###
 ###     Assemblers and Strains can be specifed in the Config.yml file 
 ###         
-###     Georgia Breckell  19.11.2019
+###     GB 18.07.2021
 ###
 ###
 ###
