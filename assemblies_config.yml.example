@@ -1,0 +1,19 @@
+assembler:
+    - flye
+    - canu
+    - unicycler
+    - ra 
+    - wtdbg2
+
+assemblers_gfa:
+    - flye
+    - canu 
+    - unicycler 
+
+sample_ID: 
+    - sample_1 
+    - sample_2 
+    - sample_3 
+    - mysample_1
+    - mysample_2 
+
