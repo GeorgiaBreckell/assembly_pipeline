@@ -1,0 +1,6 @@
+.snakemake/
+assemblies/
+results/
+data/
+zipped_assemblies/
+zipped_assemblies_renamed/
