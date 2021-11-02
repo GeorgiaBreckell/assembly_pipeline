@@ -9,9 +9,9 @@ with open(filename) as data_json:
 # Accessing the strain and assembler details. 
 filename = str(data['plasmidfinder']['user_input']['filename(s)'])
 fn = filename.split('/')
-strain = fn[-2]
-assembler_raw = fn[-1].strip(']')
-assembler= assembler_raw.strip("\'")
+strain = fn[-3]
+assembler = fn[-2]#.strip(']')
+#assembler= assembler_raw.strip("\'")
 
 # Acessing the run details.
 run_stats = data['plasmidfinder']['run_info']
@@ -39,10 +39,10 @@ header_list.append('Accession')
 header_list.append('Coverage')
 header_list.append('Hit_ID')
     
-write_results = open('plasmid_finder.csv', "a")
+write_results = open('results/{}/{}/plasmid_finder.csv'.format(strain,assembler), 'w')
 csv_writer = csv.writer(write_results)
 
-with open('plasmid_finder.csv') as f: 
+with open('results/{}/{}/plasmid_finder.csv'.format(strain,assembler)) as f: 
     line = f.readline()
     if line == '':
         csv_writer.writerow(header_list)
